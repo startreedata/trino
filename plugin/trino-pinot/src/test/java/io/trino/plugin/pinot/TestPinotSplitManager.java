@@ -108,6 +108,9 @@ public class TestPinotSplitManager
     {
         assertThat(split.getSplitType()).isEqualTo(SEGMENT);
         assertThat(split.getSegmentHost()).isPresent();
+        assertThat(split.getInstanceInfo()).isPresent();
+        assertThat(split.getInstanceInfo().orElseThrow().instanceName()).isEqualTo(split.getSegmentHost().orElseThrow());
+        assertThat(split.getInstanceInfo().orElseThrow().hostName()).isNotEqualTo(split.getSegmentHost().orElseThrow());
         assertThat(split.getSegments()).isNotEmpty();
     }
 
