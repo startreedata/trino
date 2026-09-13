@@ -133,7 +133,9 @@ public class PinotGrpcDataFetcher
         public void shutdown()
                 throws IOException
         {
-            closer.close();
+            synchronized (closer) {
+                closer.close();
+            }
         }
 
         @Override
@@ -246,7 +248,10 @@ public class PinotGrpcDataFetcher
             // GrpcQueryClient does not implement Closeable. The idle timeout is 30 minutes (grpc default).
             GrpcQueryClient client = clientCache.computeIfAbsent(mappedHostAndPort, hostAndPort -> {
                 GrpcQueryClient queryClient = proxyUri.isPresent() ? grpcQueryClientFactory.create(HostAndPort.fromString(proxyUri.get())) : grpcQueryClientFactory.create(hostAndPort);
-                closer.register(queryClient::close);
+                // computeIfAbsent runs concurrently for different servers, and Closer is not thread safe
+                synchronized (closer) {
+                    closer.register(queryClient::close);
+                }
                 return queryClient;
             });
             PinotProxyGrpcRequestBuilder grpcRequestBuilder = new PinotProxyGrpcRequestBuilder()
