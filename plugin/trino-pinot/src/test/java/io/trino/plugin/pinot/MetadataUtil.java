@@ -40,6 +40,7 @@ import static java.util.Objects.requireNonNull;
 public class MetadataUtil
 {
     public static final JsonCodec<PinotColumnHandle> COLUMN_CODEC;
+    public static final JsonCodec<PinotSplit> SPLIT_JSON_CODEC;
     public static final JsonCodec<PinotClient.GetTables> TABLES_JSON_CODEC;
     public static final JsonCodec<PinotClient.BrokersForTable> BROKERS_FOR_TABLE_JSON_CODEC;
     public static final JsonCodec<PinotClient.TimeBoundary> TIME_BOUNDARY_JSON_CODEC;
@@ -81,6 +82,7 @@ public class MetadataUtil
                 .buildOrThrow());
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
         COLUMN_CODEC = codecFactory.jsonCodec(PinotColumnHandle.class);
+        SPLIT_JSON_CODEC = codecFactory.jsonCodec(PinotSplit.class);
         TABLES_JSON_CODEC = codecFactory.jsonCodec(PinotClient.GetTables.class);
         BROKERS_FOR_TABLE_JSON_CODEC = codecFactory.jsonCodec(PinotClient.BrokersForTable.class);
         TIME_BOUNDARY_JSON_CODEC = codecFactory.jsonCodec(PinotClient.TimeBoundary.class);
