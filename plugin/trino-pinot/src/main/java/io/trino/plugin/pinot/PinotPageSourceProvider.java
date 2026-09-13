@@ -78,6 +78,7 @@ public class PinotPageSourceProvider
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
+                clusterInfoFetcher.cacheInstanceInfoFromSplit(pinotSplit.getSegmentHost().orElseThrow(), pinotSplit.getInstanceInfo().orElseThrow());
                 PinotDataFetcher pinotDataFetcher = pinotDataFetcherFactory.create(session, query, pinotSplit);
                 return new PinotSegmentPageSource(
                         targetSegmentPageSizeBytes,
