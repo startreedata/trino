@@ -37,6 +37,7 @@ import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -105,6 +106,9 @@ public class TestPinotSplitManager
     {
         assertEquals(split.getSplitType(), SEGMENT);
         assertTrue(split.getSegmentHost().isPresent());
+        assertThat(split.getInstanceInfo()).isPresent();
+        assertThat(split.getInstanceInfo().orElseThrow().instanceName()).isEqualTo(split.getSegmentHost().orElseThrow());
+        assertThat(split.getInstanceInfo().orElseThrow().hostName()).isNotEqualTo(split.getSegmentHost().orElseThrow());
         assertFalse(split.getSegments().isEmpty());
     }
 
