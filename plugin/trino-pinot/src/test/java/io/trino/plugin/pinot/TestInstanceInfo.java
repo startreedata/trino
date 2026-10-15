@@ -15,7 +15,7 @@ package io.trino.plugin.pinot;
 
 import io.trino.plugin.pinot.client.InstanceInfo;
 import org.apache.pinot.core.transport.ServerInstance;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import static io.trino.plugin.pinot.MetadataUtil.INSTANCE_INFO_JSON_CODEC;
 import static org.assertj.core.api.Assertions.assertThat;
