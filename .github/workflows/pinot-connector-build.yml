@@ -1,0 +1,98 @@
+name: Build replayed Pinot connector
+
+on:
+  workflow_call:
+    inputs:
+      trino_version:
+        type: string
+        required: true
+      release:
+        type: string
+        required: true
+      dev_sha:
+        type: string
+        required: true
+      base_sha:
+        type: string
+        default: ''
+      expected_source:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.dev_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout: |
+            .mvn
+            .github
+            plugin/trino-pinot
+            testing/trino-testing-kafka
+      - name: Replay the complete pinned development stack
+        id: prepare
+        env:
+          DEV_SHA: ${{ inputs.dev_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          TRINO_VERSION: ${{ inputs.trino_version }}
+          RELEASE: ${{ inputs.release }}
+          EXPECTED_SOURCE: ${{ inputs.expected_source }}
+        run: |
+          python3 .github/bin/pinot-connector.py prepare --dev-sha "$DEV_SHA" --base-sha "$BASE_SHA" \
+            --trino-version "$TRINO_VERSION" --release "$RELEASE" --expected-source "$EXPECTED_SOURCE"
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ steps.prepare.outputs.java }}
+      - name: Build helper and verify only the released Pinot connector
+        env:
+          MAVEN_OPTS: -Xmx3G -XX:+ExitOnOutOfMemoryError
+          CONTINUOUS_INTEGRATION: 'true'
+        run: |
+          ./mvnw -B --no-transfer-progress -f testing/trino-testing-kafka/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
+          ./mvnw -B --no-transfer-progress -P ci -f plugin/trino-pinot/pom.xml -Dmaven.source.skip=true -Dmaven.javadoc.skip=true \
+            '-Dtest=Test*,!TestPinotConnectorTest,!TestPinotConnectorSmokeTest,!TestPinotPasswordAuthentication' verify
+      - name: Load the packaged connector in matching stock Trino
+        timeout-minutes: 10
+        env:
+          TRINO_VERSION: ${{ inputs.trino_version }}
+        run: |
+          unpacked="$RUNNER_TEMP/pinot-connector"
+          mkdir -p "$unpacked"
+          unzip -q "plugin/trino-pinot/target/trino-pinot-${TRINO_VERSION}.zip" -d "$unpacked"
+          printf 'connector.name=pinot\npinot.controller-urls=http://127.0.0.1:8098\n' > "$unpacked/pinot.properties"
+          container="pinot-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'result=$?; if ((result != 0)); then docker logs "$container"; fi; docker rm -f "$container" > /dev/null' EXIT
+          docker run --detach --name "$container" \
+            --volume "$unpacked/trino-pinot-${TRINO_VERSION}:/usr/lib/trino/plugin/pinot:ro" \
+            --volume "$unpacked/pinot.properties:/etc/trino/catalog/pinot.properties:ro" \
+            "trinodb/trino:${TRINO_VERSION}"
+          for _ in {1..60}; do
+            if docker exec "$container" trino --execute 'SHOW CATALOGS' --output-format CSV > "$unpacked/catalogs" 2>/dev/null &&
+                grep -qx '"pinot"' "$unpacked/catalogs"; then exit 0; fi
+            if [[ $(docker inspect --format '{{.State.Running}}' "$container") != true ]]; then break; fi
+            sleep 5
+          done
+          echo 'Packaged Pinot connector failed to load.' >&2
+          exit 1
+      - run: python3 .github/bin/pinot-connector.py assets
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinot-${{ inputs.release }}
+          path: |
+            dist/*
+            source.bundle
+          if-no-files-found: error
+          retention-days: 14
