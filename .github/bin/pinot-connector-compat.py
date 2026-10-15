@@ -240,6 +240,8 @@ def normalize(version):
     if 434 <= version <= 451:
         pom = Path('plugin/trino-pinot/pom.xml')
         text = pom.read_text()
+        original = text
+        rules = []
         if '<artifactId>trino-testing-services</artifactId>' not in text:
             anchor = ("        <dependency>\n"
                       "            <groupId>io.trino</groupId>\n"
@@ -247,7 +249,22 @@ def normalize(version):
                       "            <scope>test</scope>\n"
                       "        </dependency>\n")
             dependency = anchor.replace('trino-tpch', 'trino-testing-services')
-            pom.write_text(replace_once(text, anchor, dependency + '\n' + anchor))
+            text = replace_once(text, anchor, dependency + '\n' + anchor)
+            rules.append('historical-testing-services-test-dependency')
+        # The direct test dependency introduces JMH 1.37, whose checkstyle.xml
+        # conflicts with Quartz 2.3.2. Trino 452 already ignores this resource.
+        if not any(pattern in text for pattern in ['>^checkstyle\\.xml$<', '>checkstyle.xml<']):
+            if '<ignoredResourcePatterns' in text:
+                raise ValueError('Unfamiliar historical duplicate-finder resource configuration')
+            anchor = ("                <artifactId>duplicate-finder-maven-plugin</artifactId>\n"
+                      "                <configuration>\n")
+            exception = ("                    <ignoredResourcePatterns combine.children=\"append\">\n"
+                         "                        <ignoredResourcePattern>^checkstyle\\.xml$</ignoredResourcePattern>\n"
+                         "                    </ignoredResourcePatterns>\n")
+            text = replace_once(text, anchor, anchor + exception)
+            rules.append('historical-jmh-quartz-checkstyle-resource')
+        if text != original:
+            pom.write_text(text)
             run('git', 'add', '--sparse', str(pom))
-            reports.append({'file': str(pom), 'rules': ['historical-testing-services-test-dependency']})
+            reports.append({'file': str(pom), 'rules': rules})
     return reports
