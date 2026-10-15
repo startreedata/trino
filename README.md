@@ -115,6 +115,7 @@ The defaults are `trino_version=latest` and `patch_number=1`. Automatic runs ski
 versions that already have a published release. If an incomplete publication
 reserved a tag, the next automatic attempt uses a higher patch number. Use the
 next patch number when publishing additional fixes for an existing Trino version.
+Comma-separated version numbers can be used to retry a specific batch.
 
 To backfill all missing releases from 429 onward:
 
