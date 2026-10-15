@@ -191,12 +191,22 @@ def prepare(args):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         Path(path).write_bytes(subprocess.check_output(['git', 'show', f'{dev}:{path}']))
     Path('README.md').write_bytes(subprocess.check_output(['git', 'show', f'{dev}:README.md']))
+    integrated = None
+    if not args.release.endswith('-SNAPSHOT') and not git('diff', '--name-only', upstream, 'HEAD', '--', 'plugin/trino-pinot/src/main', 'plugin/trino-pinot/pom.xml'):
+        guard_path = Path(__file__).with_name('pinot-connector-upstream.py')
+        spec = importlib.util.spec_from_file_location('pinot_connector_upstream', guard_path)
+        guard = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(guard)
+        integrated = guard.verify_integrated_patches(upstream)
+        integrated['guard_sha256'] = hashlib.sha256(guard_path.read_bytes()).hexdigest()
     manifest = {'schema': 1, 'release': args.release, 'trino_version': args.trino_version,
                 'dev_sha': dev, 'dev_base_sha': base, 'upstream_master_sha': master,
                 'upstream_sha': upstream, 'patches': records,
                 'compatibility': {'adapter_sha256': adapter_sha, 'adaptations': adaptations},
                 'known_limitations': [paragraph.replace('\n', ' ') for paragraph in Path('README.md').read_text().split('\n\n')
                                       if paragraph.startswith('Known limitation')]}
+    if integrated:
+        manifest['upstream_incorporation'] = integrated
     # Historical rebuilds retain the original upstream-master observation as well as the source base.
     if args.expected_source:
         original = read_manifest(args.expected_source)
@@ -220,8 +230,6 @@ def prepare(args):
         java = pom.findtext('m:properties/m:project.build.targetJdk', namespaces=ns)
     if not java:
         raise ValueError('Cannot determine the upstream release JDK')
-    if not args.release.endswith('-SNAPSHOT') and not git('diff', '--name-only', upstream, 'HEAD', '--', 'plugin/trino-pinot/src/main', 'plugin/trino-pinot/pom.xml'):
-        raise ValueError('Refusing a release without production connector patches')
     output(java=java, source_sha=source)
 
 
