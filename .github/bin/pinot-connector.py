@@ -260,6 +260,10 @@ def publish(args):
         raise ValueError('Connector archive checksum mismatch')
     configure_git()
     fetch('origin', metadata['dev_sha'])
+    # Release tags can contain commits that were never merged into master.
+    upstream = fetch(UPSTREAM, f'refs/tags/{metadata["trino_version"]}')
+    if upstream != metadata['upstream_sha']:
+        raise ValueError('Upstream release tag differs from build provenance')
     git('fetch', str(Path(args.artifact, 'source.bundle').resolve()), 'refs/pinot/prepared-release')
     if git('rev-parse', 'FETCH_HEAD') != metadata['source_sha']:
         raise ValueError('Verified source bundle differs from build provenance')
