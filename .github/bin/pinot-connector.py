@@ -54,9 +54,11 @@ def read_manifest(ref):
 
 
 def select(args):
-    refs = git('ls-remote', '--tags', UPSTREAM).splitlines()
-    versions = sorted({int(ref.split('refs/tags/')[1]) for ref in refs
-                       if re.search(r'refs/tags/[1-9][0-9]*$', ref)})
+    releases = run('gh', 'api', '--paginate', 'repos/trinodb/trino/releases',
+                   '--jq', '.[] | select(.draft == false and .prerelease == false) | .tag_name').stdout
+    versions = sorted({int(tag) for tag in releases.splitlines() if re.fullmatch(r'[1-9][0-9]*', tag)})
+    if not versions:
+        raise ValueError('No published stable upstream Trino releases were found')
     current = fetch('origin', 'refs/heads/pinot-dev')
     base = ''
     expected = ''
