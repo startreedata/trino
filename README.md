@@ -95,6 +95,11 @@ There is no per-release commit selection: every release receives the whole
 applicable development stack. Keep fixes in separate commits and send them
 upstream when practical. Add focused regression coverage for each fix.
 
+After upstream incorporates the initial fixes, releases can continue without a
+downstream production diff. Automation requires matching commits (or their combined
+squash) in the target's history and verifies that their complete production diff
+is still present. An unfamiliar rewrite or a revert stops publication for review.
+
 ## Manual releases and reproducibility
 
 To publish the current development stack for a specific Trino version, run the
