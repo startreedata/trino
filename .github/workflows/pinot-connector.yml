@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       trino_version:
-        description: Upstream Trino release number, latest, or all-missing
+        description: Upstream Trino release number(s) separated by commas, latest, or all-missing
         default: latest
         required: true
       patch_number:
