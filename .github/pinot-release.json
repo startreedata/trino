@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "release": "448-startree.1",
+  "trino_version": "448",
+  "dev_sha": "0fa1f55fdd7e3117243cc4aaf05133638588209f",
+  "dev_base_sha": "cf8992f543d0671b2579fded1d17ae3ee862d543",
+  "upstream_master_sha": "cf8992f543d0671b2579fded1d17ae3ee862d543",
+  "upstream_sha": "59094dfb1aa59e9255ebf6ae70b3df41d0c58fd2",
+  "patches": [
+    {
+      "sha": "11a18590d6234e02ce143d061ba1210ddf5b60b5",
+      "subject": "Add connector-only Pinot release workflow and installation guide",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "51d124031b3415709f1617c64aeedb1282a70561",
+      "subject": "Keep downstream CI connector-only and normalize JDK version",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "22a208c9b40252d8ade2e547651e72f12e28dee4",
+      "subject": "Resolve Pinot server host from instance config",
+      "status": "applied-with-compatibility"
+    },
+    {
+      "sha": "9339800eeb0da3c9b4fce14257e3cd9f2406f995",
+      "subject": "Refresh cached Pinot instance configs in the background",
+      "status": "applied-with-compatibility"
+    },
+    {
+      "sha": "40e624c2cf7b29ae42f2333f602bdb791d7279a6",
+      "subject": "Resolve Pinot server instance configs on the coordinator",
+      "status": "applied-with-compatibility"
+    },
+    {
+      "sha": "8787edeb112fcbeef3fd8aa182d159b9b251ddb4",
+      "subject": "Fix concurrent registration of Pinot gRPC clients",
+      "status": "applied-with-compatibility"
+    },
+    {
+      "sha": "c969c9cb013b40842db5e98222912b5b623670a7",
+      "subject": "Replay the full pinot-dev stack for connector-only releases",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "6db17d719385c8e8587700ca1675560bc8f4c2c0",
+      "subject": "Select only published stable upstream Trino releases",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "285230cb852d5d67f20f7fb71c6ca96d8bb966b0",
+      "subject": "Backfill patched Pinot connectors for Trino 429 and later",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "de965c120a264458d7b05727eaf80651f5effff1",
+      "subject": "Keep connector validation and releases working after upstream integration",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "3d281ace728c183d9724ed7fddf41cf3cdd8f630",
+      "subject": "Declare historical Pinot test dependency for Trino 434 through 451",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "13fb4d53f2686b3ad64b8662a254c6a9e5ec7877",
+      "subject": "Backport the historical Pinot test resource exception",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "43619269ae4e5a4dd5aceb4d07590900bfd832c2",
+      "subject": "Validate historical connectors when an official Docker tag is missing",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "02eabe3bc922e14bf657d8e32f992e21d6cd2b74",
+      "subject": "Retain trusted release snapshots and build unpublished Trino test dependencies",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "0fa1f55fdd7e3117243cc4aaf05133638588209f",
+      "subject": "Support explicit batches of connector release retries",
+      "status": "tooling-copied-from-dev-snapshot"
+    }
+  ],
+  "compatibility": {
+    "adapter_sha256": "1646dcd2c8a184b5c4f748bb2f82f0f935a1bf53ff28822257019c92dfd0de2a",
+    "adaptations": [
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/MetadataUtil.java",
+        "rule": "exact-span-context"
+      },
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/MockPinotClient.java",
+        "rule": "exact-span-context"
+      },
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/TestPinotClient.java",
+        "rule": "preserve-historical-broker-test-and-update-added-tests"
+      },
+      {
+        "file": "plugin/trino-pinot/src/main/java/io/trino/plugin/pinot/PinotConfig.java",
+        "rule": "exact-span-context"
+      },
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/TestPinotClient.java",
+        "rule": "preserve-historical-broker-test-and-update-added-tests"
+      },
+      {
+        "file": "plugin/trino-pinot/src/main/java/io/trino/plugin/pinot/PinotPageSourceProvider.java",
+        "rule": "historical-segment-switch"
+      },
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/TestPinotClient.java",
+        "rule": "preserve-historical-broker-test-and-update-added-tests"
+      },
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/TestPinotSplitManager.java",
+        "rule": "historical-split-assertions"
+      },
+      {
+        "file": "plugin/trino-pinot/src/main/java/io/trino/plugin/pinot/client/PinotGrpcDataFetcher.java",
+        "rule": "historical-grpc-client-close"
+      },
+      {
+        "file": "plugin/trino-pinot/src/main/java/io/trino/plugin/pinot/client/PinotClient.java",
+        "rules": [
+          "historical-airlift-duration"
+        ]
+      },
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/TestPinotClient.java",
+        "rules": [
+          "historical-controller-url-setter"
+        ]
+      },
+      {
+        "file": "plugin/trino-pinot/pom.xml",
+        "rules": [
+          "historical-testing-services-test-dependency",
+          "historical-jmh-quartz-checkstyle-resource"
+        ]
+      }
+    ]
+  },
+  "known_limitations": [
+    "Known limitation in the imported PR: worker instance metadata is shared between splits. During server host changes, overlapping splits can reuse another split's cached address. This fork initially preserves the selected upstream PR as-is."
+  ]
+}
