@@ -99,7 +99,8 @@ def select(args):
             published = {int(match) for match in re.findall(r'^([1-9][0-9]*)-startree\.[1-9][0-9]*$', releases, re.M)}
             selected = [version for version in versions if version >= MIN_TRINO_VERSION and version not in published]
         else:
-            selected = [versions[-1] if args.trino_version == 'latest' else positive(args.trino_version)]
+            selected = [versions[-1]] if args.trino_version == 'latest' else sorted({
+                positive(version) for version in args.trino_version.split(',')})
     matrix = []
     for version in selected:
         number = patch
