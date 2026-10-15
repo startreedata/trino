@@ -76,6 +76,11 @@ jobs:
           mkdir -p "$unpacked"
           unzip -q "plugin/trino-pinot/target/trino-pinot-${TRINO_VERSION}.zip" -d "$unpacked"
           printf 'connector.name=pinot\npinot.controller-urls=http://127.0.0.1:8098\n' > "$unpacked/pinot.properties"
+          if ! docker pull "trinodb/trino:${TRINO_VERSION}"; then
+            python3 .github/bin/pinot-connector-smoke.py --version "$TRINO_VERSION" \
+              --plugin "$unpacked/trino-pinot-${TRINO_VERSION}" --work "$RUNNER_TEMP/pinot-stock-server"
+            exit 0
+          fi
           container="pinot-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           trap 'result=$?; if ((result != 0)); then docker logs "$container"; fi; docker rm -f "$container" > /dev/null' EXIT
           docker run --detach --name "$container" \
