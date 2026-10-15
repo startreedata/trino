@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "release": "473-startree.1",
+  "trino_version": "473",
+  "dev_sha": "285230cb852d5d67f20f7fb71c6ca96d8bb966b0",
+  "dev_base_sha": "cf8992f543d0671b2579fded1d17ae3ee862d543",
+  "upstream_master_sha": "cf8992f543d0671b2579fded1d17ae3ee862d543",
+  "upstream_sha": "28e45d8e2405e57f2a57a42faf3d5f052d098226",
+  "patches": [
+    {
+      "sha": "11a18590d6234e02ce143d061ba1210ddf5b60b5",
+      "subject": "Add connector-only Pinot release workflow and installation guide",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "51d124031b3415709f1617c64aeedb1282a70561",
+      "subject": "Keep downstream CI connector-only and normalize JDK version",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "22a208c9b40252d8ade2e547651e72f12e28dee4",
+      "subject": "Resolve Pinot server host from instance config",
+      "status": "applied-with-compatibility"
+    },
+    {
+      "sha": "9339800eeb0da3c9b4fce14257e3cd9f2406f995",
+      "subject": "Refresh cached Pinot instance configs in the background",
+      "status": "applied"
+    },
+    {
+      "sha": "40e624c2cf7b29ae42f2333f602bdb791d7279a6",
+      "subject": "Resolve Pinot server instance configs on the coordinator",
+      "status": "applied-with-compatibility"
+    },
+    {
+      "sha": "8787edeb112fcbeef3fd8aa182d159b9b251ddb4",
+      "subject": "Fix concurrent registration of Pinot gRPC clients",
+      "status": "applied-with-compatibility"
+    },
+    {
+      "sha": "c969c9cb013b40842db5e98222912b5b623670a7",
+      "subject": "Replay the full pinot-dev stack for connector-only releases",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "6db17d719385c8e8587700ca1675560bc8f4c2c0",
+      "subject": "Select only published stable upstream Trino releases",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "285230cb852d5d67f20f7fb71c6ca96d8bb966b0",
+      "subject": "Backfill patched Pinot connectors for Trino 429 and later",
+      "status": "tooling-copied-from-dev-snapshot"
+    }
+  ],
+  "compatibility": {
+    "adapter_sha256": "9b80bef072a2edf323ea87ae3bd15a1dc921648d672c7c62c6372b16bf15dd25",
+    "adaptations": [
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/MetadataUtil.java",
+        "rule": "exact-span-context"
+      },
+      {
+        "file": "plugin/trino-pinot/src/test/java/io/trino/plugin/pinot/MockPinotClient.java",
+        "rule": "exact-span-context"
+      },
+      {
+        "file": "plugin/trino-pinot/src/main/java/io/trino/plugin/pinot/PinotPageSourceProvider.java",
+        "rule": "historical-segment-switch"
+      },
+      {
+        "file": "plugin/trino-pinot/src/main/java/io/trino/plugin/pinot/client/PinotGrpcDataFetcher.java",
+        "rule": "historical-grpc-client-close"
+      },
+      {
+        "file": "plugin/trino-pinot/src/main/java/io/trino/plugin/pinot/client/PinotClient.java",
+        "rules": [
+          "historical-airlift-duration"
+        ]
+      }
+    ]
+  },
+  "known_limitations": [
+    "Known limitation in the imported PR: worker instance metadata is shared between splits. During server host changes, overlapping splits can reuse another split's cached address. This fork initially preserves the selected upstream PR as-is."
+  ]
+}
