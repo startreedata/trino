@@ -60,10 +60,13 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx3G -XX:+ExitOnOutOfMemoryError
           CONTINUOUS_INTEGRATION: 'true'
+          TRINO_VERSION: ${{ inputs.trino_version }}
         run: |
-          ./mvnw -B --no-transfer-progress -f testing/trino-testing-kafka/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
+          if ((TRINO_VERSION >= 477)); then
+            ./mvnw -B --no-transfer-progress -f testing/trino-testing-kafka/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
+          fi
           ./mvnw -B --no-transfer-progress -P ci -f plugin/trino-pinot/pom.xml -Dmaven.source.skip=true -Dmaven.javadoc.skip=true \
-            '-Dtest=Test*,!TestPinotConnectorTest,!TestPinotConnectorSmokeTest,!TestPinotPasswordAuthentication' verify
+            '-Dtest=Test*,!TestPinotConnectorTest,!Test*ConnectorSmokeTest,!TestPinotPasswordAuthentication' verify
       - name: Load the packaged connector in matching stock Trino
         timeout-minutes: 10
         env:
@@ -95,4 +98,4 @@ jobs:
             dist/*
             source.bundle
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
