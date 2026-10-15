@@ -2,25 +2,25 @@ name: Pinot connector
 
 on:
   pull_request:
-    branches: ['startree/pinot-*']
-    paths:
-      - plugin/trino-pinot/**
-      - testing/trino-testing-kafka/**
-      - .github/workflows/pinot-connector.yml
-      - .mvn/**
-      - mvnw
-      - pom.xml
+    branches: [pinot-dev, 'startree/pinot-*']
   push:
-    branches: ['startree/pinot-*']
+    branches: [pinot-dev, 'startree/pinot-*']
     tags: ['*-startree.*']
-    paths:
-      - plugin/trino-pinot/**
-      - testing/trino-testing-kafka/**
-      - .github/workflows/pinot-connector.yml
-      - .mvn/**
-      - mvnw
-      - pom.xml
+  schedule:
+    - cron: '23 9 * * *'
   workflow_dispatch:
+    inputs:
+      trino_version:
+        description: Upstream Trino release number, or latest
+        default: latest
+        required: true
+      patch_number:
+        description: Positive StarTree patch number; existing releases are never replaced
+        default: '1'
+        required: true
+      dev_snapshot:
+        description: Optional historical pinot-dev-snapshot/<full-sha> tag; empty uses current pinot-dev
+        default: ''
 
 permissions:
   contents: read
@@ -30,175 +30,94 @@ defaults:
     shell: bash --noprofile --norc -euo pipefail {0}
 
 concurrency:
-  group: pinot-connector-${{ github.event.pull_request.number || github.ref }}
+  group: pinot-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'maintenance' || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    outputs:
-      release: ${{ steps.version.outputs.release }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          sparse-checkout: |
-            .mvn
-            .github
-            plugin/trino-pinot
-            testing/trino-testing-kafka
-      - name: Read release versions
-        id: version
-        run: |
-          python3 - <<'PY'
-          import os
-          import re
-          import xml.etree.ElementTree as ET
-
-          ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
-          pom = ET.parse('pom.xml')
-          version = pom.findtext('m:version', namespaces=ns)
-          assert re.fullmatch(r'[1-9][0-9]*', version), f'Expected an upstream release POM: {version}'
-          for path in ['plugin/trino-pinot/pom.xml', 'testing/trino-testing-kafka/pom.xml']:
-              assert ET.parse(path).findtext('m:parent/m:version', namespaces=ns) == version, path
-          if os.environ['GITHUB_REF_TYPE'] == 'tag':
-              release = os.environ['GITHUB_REF_NAME']
-              assert re.fullmatch(rf'{version}-startree\.[1-9][0-9]*', release), 'Tag must be N-startree.K and match the POM'
-          else:
-              branch = os.environ.get('GITHUB_BASE_REF') or os.environ['GITHUB_REF_NAME']
-              assert branch == f'startree/pinot-{version}', f'Expected startree/pinot-{version}'
-              release = f'{version}-startree-SNAPSHOT'
-          java = pom.findtext('m:properties/m:temurin.release', namespaces=ns)
-          assert java and java.startswith('jdk-'), 'Missing Temurin version in upstream POM'
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f'trino={version}\nrelease={release}\njava={java.removeprefix("jdk-").split("+")[0]}\n')
-          PY
-      - name: Verify upstream release and patch provenance
-        env:
-          TRINO_VERSION: ${{ steps.version.outputs.trino }}
-        run: |
-          git fetch --no-tags https://github.com/trinodb/trino.git "refs/tags/${TRINO_VERSION}"
-          upstream=$(git rev-parse 'FETCH_HEAD^{commit}')
-          git merge-base --is-ancestor "$upstream" HEAD
-          while IFS= read -r path; do
-            case "$path" in
-              plugin/trino-pinot/*|README.md|.github/workflows/*) ;;
-              *) echo "Changes outside the Pinot connector are unsupported: $path" >&2; exit 1 ;;
-            esac
-          done < <(git diff --name-only "$upstream" HEAD)
-          echo "UPSTREAM_SHA=$upstream" >> "$GITHUB_ENV"
-          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
-            git fetch --no-tags origin "refs/heads/startree/pinot-${TRINO_VERSION}"
-            git merge-base --is-ancestor HEAD FETCH_HEAD
-            if git diff --quiet "$upstream" HEAD -- plugin/trino-pinot/src/main plugin/trino-pinot/pom.xml; then
-              echo 'Refusing to publish: the connector has no production changes from the upstream release.' >&2
-              exit 1
-            fi
-          fi
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          distribution: temurin
-          java-version: ${{ steps.version.outputs.java }}
-      - name: Build test helper and verify only the Pinot connector
-        env:
-          MAVEN_OPTS: -Xmx3G -XX:+ExitOnOutOfMemoryError
-          CONTINUOUS_INTEGRATION: 'true'
-        run: |
-          # This test helper is not published to Maven Central. Other Trino dependencies use released artifacts.
-          ./mvnw -B --no-transfer-progress -f testing/trino-testing-kafka/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
-          ./mvnw -B --no-transfer-progress -f plugin/trino-pinot/pom.xml -Dmaven.source.skip=true -Dmaven.javadoc.skip=true \
-            '-Dtest=Test*,!TestPinotConnectorTest,!TestPinotConnectorSmokeTest,!TestPinotPasswordAuthentication' verify
-      - name: Load the packaged connector in the matching stock Trino runtime
-        timeout-minutes: 10
-        env:
-          TRINO_VERSION: ${{ steps.version.outputs.trino }}
-        run: |
-          unpacked="$RUNNER_TEMP/pinot-connector"
-          mkdir -p "$unpacked"
-          unzip -q "plugin/trino-pinot/target/trino-pinot-${TRINO_VERSION}.zip" -d "$unpacked"
-          printf 'connector.name=pinot\npinot.controller-urls=http://127.0.0.1:8098\n' > "$unpacked/pinot.properties"
-          container="pinot-connector-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          trap 'result=$?; if ((result != 0)); then docker logs "$container"; fi; docker rm -f "$container" > /dev/null' EXIT
-          docker run --detach --name "$container" \
-            --volume "$unpacked/trino-pinot-${TRINO_VERSION}:/usr/lib/trino/plugin/pinot:ro" \
-            --volume "$unpacked/pinot.properties:/etc/trino/catalog/pinot.properties:ro" \
-            "trinodb/trino:${TRINO_VERSION}"
-          for _ in {1..60}; do
-            if docker exec "$container" trino --execute 'SHOW CATALOGS' --output-format CSV > "$unpacked/catalogs" 2>/dev/null &&
-                grep -qx '"pinot"' "$unpacked/catalogs"; then
-              exit 0
-            fi
-            if [[ $(docker inspect --format '{{.State.Running}}' "$container") != true ]]; then break; fi
-            sleep 5
-          done
-          echo 'Packaged Pinot connector failed to load in stock Trino.' >&2
-          exit 1
-      - name: Prepare connector assets and provenance
-        env:
-          TRINO_VERSION: ${{ steps.version.outputs.trino }}
-          RELEASE_VERSION: ${{ steps.version.outputs.release }}
-        run: |
-          mkdir dist
-          cp "plugin/trino-pinot/target/trino-pinot-${TRINO_VERSION}.zip" "dist/trino-pinot-${RELEASE_VERSION}.zip"
-          (cd dist && sha256sum "trino-pinot-${RELEASE_VERSION}.zip" > "trino-pinot-${RELEASE_VERSION}.zip.sha256")
-          python3 - <<'PY'
-          import json
-          import os
-          import subprocess
-          from pathlib import Path
-
-          release = os.environ['RELEASE_VERSION']
-          metadata = {
-              'release': release,
-              'trino_version': os.environ['TRINO_VERSION'],
-              'source_repository': os.environ['GITHUB_REPOSITORY'],
-              'source_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
-              'upstream_repository': 'trinodb/trino',
-              'upstream_sha': os.environ['UPSTREAM_SHA'],
-              'workflow_run': f'https://github.com/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}',
-          }
-          Path(f'dist/trino-pinot-{release}.json').write_text(json.dumps(metadata, indent=2) + '\n')
-          PY
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: pinot-connector
-          path: dist/*
-          if-no-files-found: error
-          retention-days: 14
-
-  publish:
-    needs: build
-    if: github.repository == 'startreedata/trino' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+  sync:
+    if: github.repository == 'startreedata/trino' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dev_snapshot == ''))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: pinot-dev
+          fetch-depth: 0
+      - run: python3 .github/bin/pinot-connector.py sync
+
+  plan:
+    needs: sync
+    if: always() && !cancelled() && (needs.sync.result == 'success' || needs.sync.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_REF: ${{ github.event.pull_request.base.ref || github.ref_name }}
+          TARGET_VERSION: ${{ inputs.trino_version || 'latest' }}
+          PATCH_NUMBER: ${{ inputs.patch_number || '1' }}
+          DEV_SNAPSHOT: ${{ inputs.dev_snapshot }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mode=ci
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then mode=tag; fi
+          if [[ "$EVENT" == schedule ]]; then mode=release; TARGET_VERSION=all-missing; fi
+          if [[ "$EVENT" == workflow_dispatch ]]; then mode=release; fi
+          python3 .github/bin/pinot-connector.py select --mode "$mode" --source "$SOURCE_SHA" --ref "$SOURCE_REF" \
+            --trino-version "$TARGET_VERSION" --patch-number "$PATCH_NUMBER" --dev-snapshot "$DEV_SNAPSHOT"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    uses: ./.github/workflows/pinot-connector-build.yml
+    with:
+      trino_version: ${{ matrix.release.trino }}
+      release: ${{ matrix.release.release }}
+      dev_sha: ${{ matrix.release.dev_sha }}
+      base_sha: ${{ matrix.release.base_sha }}
+      expected_source: ${{ matrix.release.expected_source }}
+
+  publish:
+    needs: [plan, build]
+    if: always() && !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' && needs.build.result != 'cancelled' && github.repository == 'startreedata/trino' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ matrix.release.dev_sha }}
+          fetch-depth: 0
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: pinot-connector
-          path: dist
-      - name: Publish a new connector release
-        env:
+          name: pinot-${{ matrix.release.release }}
+          path: verified
+      - env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_VERSION: ${{ needs.build.outputs.release }}
+          EXISTING_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
-          # Creating a new draft fails if the release already exists. Never overwrite assets on reruns.
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          metadata = json.loads(next(Path('dist').glob('*.json')).read_text())
-          compare = f'https://github.com/{metadata["source_repository"]}/compare/{metadata["upstream_sha"]}...{metadata["source_sha"]}'
-          Path('release-notes.md').write_text(
-              'Patched Pinot connector only. Use the ZIP with the matching Trino release; verify its SHA-256 checksum. '
-              'See the repository README for installation and provenance.\n\n'
-              f'[Changes from upstream Trino {metadata["trino_version"]}]({compare})\n')
-          PY
-          gh release create "$RELEASE_VERSION" --draft --verify-tag --title "Pinot connector ${RELEASE_VERSION}" \
-            --notes-file release-notes.md
-          gh release upload "$RELEASE_VERSION" dist/*
-          gh release edit "$RELEASE_VERSION" --draft=false --latest=false
+          args=()
+          if [[ "$EXISTING_TAG" == true ]]; then args+=(--existing-tag); fi
+          python3 .github/bin/pinot-connector.py publish --artifact verified "${args[@]}"
