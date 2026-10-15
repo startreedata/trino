@@ -78,8 +78,9 @@ For each supported upstream Trino release:
 2. Carry over this fork's connector workflow, its scripts, and this README as a
    tooling commit. Cherry-pick the applicable Pinot fixes with `git cherry-pick
    -x`, resolve any API differences, and remove fixes already included upstream.
-3. Push the branch and inspect its connector CI results. The inherited upstream
-   workflows are disabled in this fork so it does not run Trino-wide CI.
+3. Keep only `pinot-connector.yml` in `.github/workflows` on downstream release
+   branches, as on the initial branch. Push the branch and inspect its connector
+   CI results; the fork does not need Trino-wide CI.
 4. After validating the fixes, tag the exact commit and push the tag:
 
    ```bash
