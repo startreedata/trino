@@ -40,12 +40,15 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+    outputs:
+      dev_snapshot: ${{ steps.sync.outputs.dev_snapshot }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: pinot-dev
           fetch-depth: 0
-      - run: python3 .github/bin/pinot-connector.py sync
+      - id: sync
+        run: python3 .github/bin/pinot-connector.py sync
 
   plan:
     needs: sync
@@ -68,7 +71,7 @@ jobs:
           SOURCE_REF: ${{ github.event.pull_request.base.ref || github.ref_name }}
           TARGET_VERSION: ${{ inputs.trino_version || 'latest' }}
           PATCH_NUMBER: ${{ inputs.patch_number || '1' }}
-          DEV_SNAPSHOT: ${{ inputs.dev_snapshot }}
+          DEV_SNAPSHOT: ${{ inputs.dev_snapshot || needs.sync.outputs.dev_snapshot }}
           GH_TOKEN: ${{ github.token }}
         run: |
           mode=ci
