@@ -126,11 +126,16 @@ gh workflow run pinot-connector.yml --repo startreedata/trino --ref pinot-dev \
 Historical builds use each upstream tag's Java version and dependencies.
 Compatibility adaptations preserve the complete development patch stack across
 older connector APIs and test frameworks; provenance records every adaptation.
+Missing Trino test helpers are built from that exact release's source. Trino 477
+also requires its unpublished dependency modules to be built locally for validation;
+only the Pinot plugin is packaged for download.
 
 Each release retains an immutable annotated development snapshot tag,
 `pinot-dev-snapshot/<full-development-sha>`. Its provenance records that snapshot,
 the upstream base and release SHAs, and the complete ordered commit list with
-replay/skip status. To rebuild an older development stack after `pinot-dev` has
+replay/skip status. Automation also retains `startree/dev-snapshots/<sha>` branches
+before building, so GitHub can publish the pinned workflow files after development
+moves without a personal access token. To rebuild an older development stack after `pinot-dev` has
 moved or dropped fixes incorporated upstream, pass its retained snapshot:
 
 ```bash
