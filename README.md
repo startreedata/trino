@@ -4,8 +4,16 @@ This fork maintains patches to Trino's Pinot connector while changes make their
 way upstream. Releases contain **only the complete Pinot plugin ZIP**, including
 its runtime dependencies. Continue using the official Trino server or container.
 
-The initial branch is based on upstream Trino **483**. Creating the fork does not
-publish a patched connector; a connector fix must be committed before publishing.
+The default development branch is **`pinot-dev`**, based on upstream `master`.
+Its initial patch stack contains all four commits from
+[Trino PR #30881](https://github.com/trinodb/trino/pull/30881): authoritative server
+host lookup, background instance refresh, coordinator-side instance resolution,
+and synchronized gRPC client registration. Connector releases initially start at
+Trino **483**.
+
+Known limitation in the imported PR: worker instance metadata is shared between
+splits. During server host changes, overlapping splits can reuse another split's
+cached address. This fork initially preserves the selected upstream PR as-is.
 
 ## Compatibility and downloads
 
@@ -51,51 +59,73 @@ must contain the JAR files directly; avoid an extra nested extraction directory.
 Do not retain a second copy of the Pinot plugin under another name in `plugin/`.
 See the [upstream installation instructions](https://trino.io/docs/current/installation/plugins.html#installation).
 
-## Connector development
+## Development and automatic releases
 
-Use a branch `startree/pinot-<trino-version>` based on the corresponding upstream
-release tag. Keep connector changes in `plugin/trino-pinot`; a patch requiring
-changes to the Trino engine or SPI cannot be delivered as a drop-in connector.
-Keep fixes as small, separate commits and send them upstream when practical.
+Commit connector development to `pinot-dev`; keep its patch history linear.
+Changes may touch `plugin/trino-pinot` and the Pinot connector documentation.
+Engine or SPI changes cannot be shipped as a drop-in connector. Upstream Trino
+workflow definitions are removed from downstream branches; only the connector
+workflows run.
 
-The connector workflow builds the Pinot module using released Trino dependencies
-instead of building the server. Trino 483 also needs the small
-`trino-testing-kafka` helper built locally because it is not published to Maven
-Central. The workflow selects the JDK required by the upstream release.
+The [Pinot connector workflow](.github/workflows/pinot-connector.yml) checks daily
+for new upstream releases starting at 483. It also synchronizes fork `master`
+and rebases `pinot-dev` onto upstream `master`. A real source conflict stops the
+run for maintainer resolution; it never silently drops a conflicting patch.
+Pushes and pull requests to `pinot-dev` validate the complete patch stack against
+the latest stable Trino release without publishing.
 
-Run the build commands from `.github/workflows/pinot-connector.yml` locally, or
-use its manual **Run workflow** action on your release branch. Branch and PR
-builds produce temporary Actions artifacts; only release tags publish permanent
-downloads. Add focused tests for the particular connector fixes you make.
+For each new upstream release, automation:
 
-## Maintaining releases
+1. Pins the complete `pinot-dev` snapshot and its upstream base.
+2. Starts from the exact upstream release tag, retaining that release's Maven
+   and dependency versions, and replays **every downstream connector commit in
+   order**. Patches already present upstream are recorded as skipped. Tooling is
+   copied from the same pinned development snapshot.
+3. Runs connector unit tests and loads the resulting complete plugin ZIP into
+   the matching official Trino Docker image. The load check verifies packaging
+   and catalog initialization; it does not validate queries against a live Pinot
+   cluster. Three existing cluster integration suites are excluded from this
+   small packaging pipeline.
+4. Publishes `<trino-version>-startree.1` with only the connector assets. A failed
+   replay, build, or runtime check prevents publication. Existing release tags
+   and assets are never replaced.
 
-For each supported upstream Trino release:
+There is no per-release commit selection: every release receives the whole
+applicable development stack. Keep fixes in separate commits and send them
+upstream when practical. Add focused regression coverage for each fix.
 
-1. Fetch its exact release tag from `https://github.com/trinodb/trino.git` and
-   create `startree/pinot-<version>` from that tag. Do not build a release from
-   upstream `master` or a `-SNAPSHOT` version.
-2. Carry over this fork's connector workflow, its scripts, and this README as a
-   tooling commit. Cherry-pick the applicable Pinot fixes with `git cherry-pick
-   -x`, resolve any API differences, and remove fixes already included upstream.
-3. Keep only `pinot-connector.yml` in `.github/workflows` on downstream release
-   branches, as on the initial branch. Push the branch and inspect its connector
-   CI results; the fork does not need Trino-wide CI.
-4. After validating the fixes, tag the exact commit and push the tag:
+## Manual releases and reproducibility
 
-   ```bash
-   git tag -a 483-startree.1 -m 'Pinot connector for Trino 483, StarTree patch 1'
-   git push origin 483-startree.1
-   ```
+To publish the current development stack for a specific Trino version, run the
+workflow on `pinot-dev`. For example, a second patched build of Trino 483:
 
-The connector workflow checks that the tag matches the upstream version, runs
-focused validation, and publishes the connector assets. It refuses to publish
-when the connector is unchanged from upstream. Never move a published tag or
-replace its assets; issue the next patch number instead. Record the included
-fixes and upstream PR links in the release notes.
+```bash
+gh workflow run pinot-connector.yml --repo startreedata/trino --ref pinot-dev \
+  -f trino_version=483 -f patch_number=2
+```
 
-Supporting another Trino release means building and testing a separate connector
-for that release. New upstream releases do not automatically become supported.
+The defaults are `trino_version=latest` and `patch_number=1`. Automatic runs skip
+versions that already have a published release. If an incomplete publication
+reserved a tag, the next automatic attempt uses a higher patch number. Use the
+next patch number when publishing additional fixes for an existing Trino version.
+
+Each release retains an immutable annotated development snapshot tag,
+`pinot-dev-snapshot/<full-development-sha>`. Its provenance records that snapshot,
+the upstream base and release SHAs, and the complete ordered commit list with
+replay/skip status. To rebuild an older development stack after `pinot-dev` has
+moved or dropped fixes incorporated upstream, pass its retained snapshot:
+
+```bash
+gh workflow run pinot-connector.yml --repo startreedata/trino --ref pinot-dev \
+  -f trino_version=483 -f patch_number=3 \
+  -f dev_snapshot=pinot-dev-snapshot/<full-development-sha>
+```
+
+The reusable [build workflow](.github/workflows/pinot-connector-build.yml) builds
+only the connector and its small unpublished `trino-testing-kafka` test helper,
+using released Trino artifacts for other dependencies. A `master` development
+version such as `484-SNAPSHOT` is never relabeled as a stable release build.
+The workflow selects the JDK required by the targeted upstream release.
 
 ## Upstream and license
 
