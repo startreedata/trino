@@ -83,9 +83,10 @@ For each new upstream release, automation:
    order**. Patches already present upstream are recorded as skipped. Tooling is
    copied from the same pinned development snapshot.
 3. Runs connector unit tests and loads the resulting complete plugin ZIP into
-   the matching official Trino Docker image. The load check verifies packaging
-   and catalog initialization; it does not validate queries against a live Pinot
-   cluster. Existing cluster integration suites are excluded from this
+   the matching official Trino Docker image. If that image is unavailable, it uses
+   the released server archive verified against Maven Central's checksum. The
+   load check verifies packaging and catalog initialization; it does not validate
+   queries against a live Pinot cluster. Existing cluster integration suites are excluded from this
    small packaging pipeline.
 4. Publishes `<trino-version>-startree.<patch>` with only the connector assets. A failed
    replay, build, or runtime check prevents publication. Existing release tags
