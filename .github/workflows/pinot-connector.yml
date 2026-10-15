@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       trino_version:
-        description: Upstream Trino release number, or latest
+        description: Upstream Trino release number, latest, or all-missing
         default: latest
         required: true
       patch_number:
@@ -83,6 +83,7 @@ jobs:
     if: needs.plan.outputs.count != '0'
     strategy:
       fail-fast: false
+      max-parallel: 8
       matrix:
         release: ${{ fromJSON(needs.plan.outputs.matrix) }}
     uses: ./.github/workflows/pinot-connector-build.yml
@@ -102,6 +103,7 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         release: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
