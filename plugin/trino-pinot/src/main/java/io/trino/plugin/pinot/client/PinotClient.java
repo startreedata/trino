@@ -184,7 +184,7 @@ public class PinotClient
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.instanceInfoCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .refreshAfterWrite(config.getInstanceConfigRefreshInterval().toJavaTime()),
+                        .refreshAfterWrite(config.getInstanceConfigRefreshInterval().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
                 asyncReloading(CacheLoader.from(this::fetchInstanceInfo), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
