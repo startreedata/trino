@@ -235,4 +235,19 @@ def normalize(version):
             path.write_text(text)
             run('git', 'add', str(path))
             reports.append({'file': str(path), 'rules': rules})
+    # Assert.assertEventually moved into this module in 434; Pinot started
+    # declaring its direct test dependency in 452.
+    if 434 <= version <= 451:
+        pom = Path('plugin/trino-pinot/pom.xml')
+        text = pom.read_text()
+        if '<artifactId>trino-testing-services</artifactId>' not in text:
+            anchor = ("        <dependency>\n"
+                      "            <groupId>io.trino</groupId>\n"
+                      "            <artifactId>trino-tpch</artifactId>\n"
+                      "            <scope>test</scope>\n"
+                      "        </dependency>\n")
+            dependency = anchor.replace('trino-tpch', 'trino-testing-services')
+            pom.write_text(replace_once(text, anchor, dependency + '\n' + anchor))
+            run('git', 'add', '--sparse', str(pom))
+            reports.append({'file': str(pom), 'rules': ['historical-testing-services-test-dependency']})
     return reports
