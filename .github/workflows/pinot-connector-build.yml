@@ -29,7 +29,7 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: ${{ inputs.trino_version == '477' && 90 || 45 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -40,6 +40,7 @@ jobs:
             .mvn
             .github
             plugin/trino-pinot
+            core/trino-spi
             testing/trino-testing-kafka
       - name: Replay the complete pinned development stack
         id: prepare
@@ -62,8 +63,21 @@ jobs:
           CONTINUOUS_INTEGRATION: 'true'
           TRINO_VERSION: ${{ inputs.trino_version }}
         run: |
-          if ((TRINO_VERSION >= 477)); then
-            ./mvnw -B --no-transfer-progress -f testing/trino-testing-kafka/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
+          if ((TRINO_VERSION == 477)); then
+            # Most 477 dependency JARs were not published. Build the exact release's
+            # dependency closure; UI assets are unnecessary for connector testing.
+            git sparse-checkout disable
+            MAVEN_OPTS='-Xmx6G -XX:+ExitOnOutOfMemoryError' ./mvnw -B --no-transfer-progress \
+              -pl testing/trino-testing,testing/trino-testing-kafka -am -DskipTests \
+              -Dair.check.skip-all=true -Dskip.installnodenpm=true -Dskip.npm=true \
+              -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
+          else
+            if ((TRINO_VERSION == 478)); then
+              ./mvnw -B --no-transfer-progress -f core/trino-spi/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
+            fi
+            if ((TRINO_VERSION >= 477)); then
+              ./mvnw -B --no-transfer-progress -f testing/trino-testing-kafka/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
+            fi
           fi
           ./mvnw -B --no-transfer-progress -P ci -f plugin/trino-pinot/pom.xml -Dmaven.source.skip=true -Dmaven.javadoc.skip=true \
             '-Dtest=Test*,!TestPinotConnectorTest,!Test*ConnectorSmokeTest,!TestPinotPasswordAuthentication' verify
