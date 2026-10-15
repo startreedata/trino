@@ -345,8 +345,29 @@ def sync(args):
     if inherited:
         git('commit', '-m', 'Keep inherited upstream workflows disabled in the Pinot fork')
     git('merge-base', '--is-ancestor', fork_master, upstream)
-    git('push', '--atomic', f'--force-with-lease=refs/heads/pinot-dev:{observed}', 'origin',
-        f'{upstream}:refs/heads/master', 'HEAD:refs/heads/pinot-dev')
+    dev = git('rev-parse', 'HEAD')
+    snapshot = f'pinot-dev-snapshot/{dev}'
+    branch = f'refs/heads/startree/dev-snapshots/{dev}'
+    payload = {'dev_sha': dev, 'dev_base_sha': upstream}
+    refspecs = [f'{upstream}:refs/heads/master', 'HEAD:refs/heads/pinot-dev']
+    leases = [f'--force-with-lease=refs/heads/pinot-dev:{observed}']
+    retained = git('ls-remote', 'origin', branch)
+    if retained and retained.split()[0] != dev:
+        raise ValueError('Existing retained development branch differs')
+    if not retained:
+        leases.append(f'--force-with-lease={branch}:')
+        refspecs.append(f'{dev}:{branch}')
+    if git('ls-remote', '--tags', 'origin', f'refs/tags/{snapshot}'):
+        if fetch('origin', f'refs/tags/{snapshot}') != dev or json.loads(
+                git('cat-file', 'tag', 'FETCH_HEAD').split('\n\n', 1)[1]) != payload:
+            raise ValueError('Existing immutable development snapshot differs')
+    else:
+        git('tag', '-a', snapshot, dev, '-m', json.dumps(payload))
+        refspecs.append(f'refs/tags/{snapshot}')
+    # Keep identical workflow files on a branch so GITHUB_TOKEN can publish
+    # older verified snapshots after pinot-dev moves, without workflow-write scope.
+    git('push', '--atomic', *leases, 'origin', *refspecs)
+    output(dev_snapshot=snapshot)
 
 
 parser = argparse.ArgumentParser(description=__doc__)
