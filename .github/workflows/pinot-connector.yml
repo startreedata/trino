@@ -80,7 +80,7 @@ jobs:
 
   build:
     needs: plan
-    if: needs.plan.outputs.count != '0'
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' }}
     strategy:
       fail-fast: false
       max-parallel: 8
