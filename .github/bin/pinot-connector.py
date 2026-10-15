@@ -192,7 +192,7 @@ def prepare(args):
         Path(path).write_bytes(subprocess.check_output(['git', 'show', f'{dev}:{path}']))
     Path('README.md').write_bytes(subprocess.check_output(['git', 'show', f'{dev}:README.md']))
     integrated = None
-    if not args.release.endswith('-SNAPSHOT') and not git('diff', '--name-only', upstream, 'HEAD', '--', 'plugin/trino-pinot/src/main', 'plugin/trino-pinot/pom.xml'):
+    if not args.release.endswith('-SNAPSHOT') and not git('diff', '--name-only', upstream, 'HEAD', '--', 'plugin/trino-pinot/src/main'):
         guard_path = Path(__file__).with_name('pinot-connector-upstream.py')
         spec = importlib.util.spec_from_file_location('pinot_connector_upstream', guard_path)
         guard = importlib.util.module_from_spec(spec)
