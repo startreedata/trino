@@ -204,7 +204,7 @@ public class TestPinotClient
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
                 .setInstanceConfigRefreshInterval(instanceConfigRefreshInterval)
-                .setControllerUrls(ImmutableList.of("localhost:7900"));
+                .setControllerUrls("localhost:7900");
         AtomicReference<PinotClient> clientReference = new AtomicReference<>();
         PinotClient pinotClient = new PinotClient(
                 pinotConfig,
