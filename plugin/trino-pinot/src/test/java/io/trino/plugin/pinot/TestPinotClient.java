@@ -109,7 +109,7 @@ public class TestPinotClient
     @Test
     public void testInstanceInfoParsed()
     {
-        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8,
+        HttpClient httpClient = new TestingHttpClient(request -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8,
                 """
                 {
                   "instanceName": "Server_dummy-server-host1-datacenter1_8098",
@@ -129,7 +129,7 @@ public class TestPinotClient
     public void testInstanceInfoLookupFailureIsNotWrapped()
     {
         // The cache loader throws an unchecked PinotException, which Guava wraps before it reaches the caller
-        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(HttpStatus.NOT_FOUND, MediaType.JSON_UTF_8, "{}"));
+        HttpClient httpClient = new TestingHttpClient(request -> TestingResponse.mockResponse(HttpStatus.NOT_FOUND, MediaType.JSON_UTF_8, "{}"));
         assertThatThrownBy(() -> createPinotClient(httpClient, new Duration(30, TimeUnit.MINUTES)).getInstanceInfo("Server_missing_8098"))
                 .isInstanceOf(PinotException.class);
     }
@@ -140,7 +140,7 @@ public class TestPinotClient
         // The controller reports a new host on every call after the first: a read after the refresh interval
         // must be served immediately from the cache, and the new host must show up once the refresh completes.
         AtomicInteger controllerCalls = new AtomicInteger();
-        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(
+        HttpClient httpClient = new TestingHttpClient(request -> TestingResponse.mockResponse(
                 HttpStatus.OK,
                 MediaType.JSON_UTF_8,
                 instanceJson(controllerCalls.getAndIncrement() == 0 ? "Server_dummy-server-host1-datacenter1" : "dummy-server-host1-datacenter1-0")));
@@ -158,7 +158,7 @@ public class TestPinotClient
         // The controller answers the first lookup and then becomes unavailable. Once an instance has been resolved,
         // a failing background refresh must keep serving the last good value rather than surface to the query.
         AtomicInteger controllerCalls = new AtomicInteger();
-        HttpClient httpClient = new TestingHttpClient(_ -> controllerCalls.getAndIncrement() == 0
+        HttpClient httpClient = new TestingHttpClient(request -> controllerCalls.getAndIncrement() == 0
                 ? TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, instanceJson("Server_dummy-server-host1-datacenter1"))
                 : TestingResponse.mockResponse(HttpStatus.SERVICE_UNAVAILABLE, MediaType.JSON_UTF_8, "{}"));
         PinotClient pinotClient = createPinotClient(httpClient, new Duration(1, TimeUnit.MILLISECONDS));
@@ -177,7 +177,7 @@ public class TestPinotClient
         // A worker that received the instance config with its split must not contact the controller at all,
         // while resolving still goes to the controller
         AtomicInteger controllerCalls = new AtomicInteger();
-        HttpClient httpClient = new TestingHttpClient(_ -> {
+        HttpClient httpClient = new TestingHttpClient(request -> {
             controllerCalls.incrementAndGet();
             return TestingResponse.mockResponse(HttpStatus.SERVICE_UNAVAILABLE, MediaType.JSON_UTF_8, "{}");
         });
@@ -204,7 +204,7 @@ public class TestPinotClient
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
                 .setInstanceConfigRefreshInterval(instanceConfigRefreshInterval)
-                .setControllerUrls(ImmutableList.of("localhost:7900"));
+                .setControllerUrls("localhost:7900");
         AtomicReference<PinotClient> clientReference = new AtomicReference<>();
         PinotClient pinotClient = new PinotClient(
                 pinotConfig,
