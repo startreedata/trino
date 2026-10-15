@@ -1,145 +1,105 @@
-<p align="center">
-    <a href="https://trino.io/"><img alt="Trino Logo" src=".github/homepage.png" /></a>
-</p>
-<p align="center">
-    <b>Trino is a fast distributed SQL query engine for big data analytics.</b>
-</p>
-<p align="center">
-    See the <a href="https://trino.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.
-</p>
-<p align="center">
-  <a href="https://trino.io/download.html" style="text-decoration: none"><img
-    src="https://img.shields.io/github/v/release/trinodb/trino"
-    alt="Trino download"
-  /></a>
-  <a href="https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/trino/README.md" style="text-decoration: none"><img
-    src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jvm-repo-rebuild/reproducible-central/master/content/io/trino/badge.json"
-    alt="Reproducible builds supported"
-  /></a>
-  <a href="https://trino.io/slack.html" style="text-decoration: none"><img
-    src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358"
-    alt="Trino Slack"
-  /></a>
-  <a href="https://trino.io/trino-the-definitive-guide.html" style="text-decoration: none"><img
-    src="https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen"
-    alt="Trino: The Definitive Guide book download"
-  /></a>
-</p>
+# StarTree Pinot connector for Trino
 
-## Development
+This fork maintains patches to Trino's Pinot connector while changes make their
+way upstream. Releases contain **only the complete Pinot plugin ZIP**, including
+its runtime dependencies. Continue using the official Trino server or container.
 
-See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about development and release process,
-code style and guidelines for implementors of Trino plugins.
+The initial branch is based on upstream Trino **483**. Creating the fork does not
+publish a patched connector; a connector fix must be committed before publishing.
 
-See [CONTRIBUTING](.github/CONTRIBUTING.md) for contribution requirements.
+## Compatibility and downloads
 
-## Security
+Download from [GitHub Releases](https://github.com/startreedata/trino/releases).
+Each release is named `<trino-version>-startree.<patch>`, for example
+`483-startree.1`, and is intended **only for that exact Trino version**. Do not use
+a 483 connector with a different Trino release. Trino's SPI can change between
+releases; see the [upstream compatibility guidance](https://trino.io/docs/current/develop/spi-overview.html#compatibility).
 
-See the project [security policy](.github/SECURITY.md) for
-information about reporting vulnerabilities.
+Each release includes the plugin ZIP, a SHA-256 checksum, and JSON build metadata
+identifying its upstream version and source commits. The Maven project and Trino
+dependency versions remain the upstream release number; the StarTree suffix
+identifies the downloadable patched build. We do not publish over upstream Maven
+artifacts.
 
-Trino supports [reproducible builds](https://reproducible-builds.org) as of version 449.
+## Installation
 
-## Build requirements
+The following example assumes `483-startree.1` has been published and your cluster
+runs Trino 483. Substitute the release matching your cluster.
 
-* Mac OS X or Linux
-  * Note that some npm packages used to build the web UI are only available
-    for x86 architectures, so if you're building on Apple Silicon, you need
-    to have Rosetta 2 installed.
-* Java 25.0.1+, 64-bit
-* Docker
-  * Turn SELinux or other systems disabling write access to the local checkout
-    off, to allow containers to mount parts of the Trino source tree
+```bash
+release=483-startree.1
+archive="trino-pinot-${release}.zip"
+base="https://github.com/startreedata/trino/releases/download/${release}"
+curl --fail --location --remote-name "${base}/${archive}"
+curl --fail --location --remote-name "${base}/${archive}.sha256"
+sha256sum --check "${archive}.sha256"  # macOS: shasum -a 256 -c "${archive}.sha256"
+unzip "${archive}" -d staged-pinot
+```
 
-## Building Trino
+1. Stop Trino on every coordinator and worker.
+2. Move the current `plugin/pinot` directory to a backup **outside `plugin/`**.
+3. Copy the extracted directory containing the plugin JAR and dependency JARs
+   into `plugin/pinot` on every node. Replace the entire directory; copying a
+   single JAR or overlaying old dependencies can leave incompatible classes.
+4. Keep your existing Pinot catalog configuration (`connector.name=pinot`).
+5. Start all nodes and run your Pinot query checks. To roll back, stop all nodes,
+   restore the backup directory on each node, and restart.
 
-Trino is a standard Maven project. Simply run the following command from the
-project root directory:
+For the official Docker image the destination is `/usr/lib/trino/plugin/pinot`.
+Use a derived image or a directory mount to replace it. Each plugin directory
+must contain the JAR files directly; avoid an extra nested extraction directory.
+Do not retain a second copy of the Pinot plugin under another name in `plugin/`.
+See the [upstream installation instructions](https://trino.io/docs/current/installation/plugins.html#installation).
 
-    ./mvnw clean install -DskipTests
+## Connector development
 
-On the first build, Maven downloads all the dependencies from the internet
-and caches them in the local repository (`~/.m2/repository`), which can take a
-while, depending on your connection speed. Subsequent builds are faster.
+Use a branch `startree/pinot-<trino-version>` based on the corresponding upstream
+release tag. Keep connector changes in `plugin/trino-pinot`; a patch requiring
+changes to the Trino engine or SPI cannot be delivered as a drop-in connector.
+Keep fixes as small, separate commits and send them upstream when practical.
 
-Trino has a comprehensive set of tests that take a considerable amount of time
-to run, and are thus disabled by the above command. These tests are run by the
-CI system when you submit a pull request. We recommend only running tests
-locally for the areas of code that you change.
+The connector workflow builds the Pinot module using released Trino dependencies
+instead of building the server. Trino 483 also needs the small
+`trino-testing-kafka` helper built locally because it is not published to Maven
+Central. The workflow selects the JDK required by the upstream release.
 
-## Running Trino in your IDE
+Run the build commands from `.github/workflows/pinot-connector.yml` locally, or
+use its manual **Run workflow** action on your release branch. Branch and PR
+builds produce temporary Actions artifacts; only release tags publish permanent
+downloads. Add focused tests for the particular connector fixes you make.
 
-### Overview
+## Maintaining releases
 
-After building Trino for the first time, you can load the project into your IDE
-and run the server.  We recommend using
-[IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Trino is a standard
-Maven project, you can easily import it into your IDE. In IntelliJ, choose
-*Open Project* from the *Quick Start* box or choose *Open*
-from the *File* menu and select the root `pom.xml` file.
+For each supported upstream Trino release:
 
-After opening the project in IntelliJ, double-check that the Java SDK is
-properly configured for the project:
+1. Fetch its exact release tag from `https://github.com/trinodb/trino.git` and
+   create `startree/pinot-<version>` from that tag. Do not build a release from
+   upstream `master` or a `-SNAPSHOT` version.
+2. Carry over this fork's connector workflow, its scripts, and this README as a
+   tooling commit. Cherry-pick the applicable Pinot fixes with `git cherry-pick
+   -x`, resolve any API differences, and remove fixes already included upstream.
+3. Push the branch and inspect its connector CI results. The inherited upstream
+   workflows are disabled in this fork so it does not run Trino-wide CI.
+4. After validating the fixes, tag the exact commit and push the tag:
 
-* Open the File menu and select Project Structure
-* In the SDKs section, ensure that JDK 25 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 25
+   ```bash
+   git tag -a 483-startree.1 -m 'Pinot connector for Trino 483, StarTree patch 1'
+   git push origin 483-startree.1
+   ```
 
-### Running a testing server
+The connector workflow checks that the tag matches the upstream version, runs
+focused validation, and publishes the connector assets. It refuses to publish
+when the connector is unchanged from upstream. Never move a published tag or
+replace its assets; issue the next patch number instead. Record the included
+fixes and upstream PR links in the release notes.
 
-The simplest way to run Trino for development is to run the `TpchQueryRunner`
-class. It will start a development version of the server that is configured with
-the TPCH connector. You can then use the CLI to execute queries against this
-server. Many other connectors have their own `*QueryRunner` class that you can
-use when working on a specific connector. The VM option generally required here
-is `--add-modules jdk.incubator.vector`, but various `*QueryRunner` classes
-might require additional options (if necessary, check the `air.test.jvm.additional-arguments`
-property in the `pom.xml` file of the module from which the runner comes).
+Supporting another Trino release means building and testing a separate connector
+for that release. New upstream releases do not automatically become supported.
 
-### Running tests from the IDE
+## Upstream and license
 
-When running individual test classes directly from IntelliJ, you need to
-configure the JUnit run configuration template. Go to Run/Debug Configurations >
-Edit Configuration Templates > JUnit > VM options and set the value to
-`-ea --add-modules=jdk.incubator.vector`. Some tests may rely on JVM options provided
-by airbase (e.g. `-XX:-OmitStackTraceInFastThrow`), so check for that too.
-
-### Running the full server
-
-Trino comes with sample configuration that should work out-of-the-box for
-development. Use the following options to create a run configuration:
-
-* Main Class: `io.trino.server.DevelopmentServer`
-* VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true --sun-misc-unsafe-memory-access=allow --add-modules jdk.incubator.vector`
-* Working directory: `$MODULE_DIR$`
-* Use classpath of module: `trino-server-dev`
-
-The working directory should be the `trino-server-dev` subdirectory. In
-IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
-
-If `VM options` doesn't exist in the dialog, you need to select `Modify options`
-and enable `Add VM options`.
-
-To adjust which plugins are enabled for the development server, adjust the value of
-`plugin.bundles` in `config.properties`. Each entry in this list must represent a plugin
-specified by one of the following options:
-* A path to a `pom.xml` or `*.pom` file describing a Maven project that produces a plugin.
-* Maven coordinates, in the form `<groupId>:<artifactId>[:<extension>[:<classifier>]]:<version>`. The plugin will be loaded via Maven and therefore must be available in your local repository or a remote repository.
-* A path to a plugin directory containing JAR files. See [Deploying a custom plugin](https://trino.io/docs/current/develop/spi-overview.html#deploying-a-custom-plugin) for more details.
-
-If you want to use a plugin in a catalog, you must add a corresponding
-`<catalog_name>.properties` file to `testing/trino-server-dev/etc/catalog`.
-
-### Running the CLI
-
-Start the CLI to connect to the server and run SQL queries:
-
-    client/trino-cli/target/trino-cli-*-executable.jar
-
-Run a query to see the nodes in the cluster:
-
-    SELECT * FROM system.runtime.nodes;
-
-Run a query against the TPCH connector:
-
-    SELECT * FROM tpch.tiny.region;
+Source is forked from [trinodb/trino](https://github.com/trinodb/trino), under the
+[Apache License 2.0](LICENSE). The full upstream source remains available for
+development and provenance. For general Trino development, see the
+[upstream README](https://github.com/trinodb/trino/blob/483/README.md) and
+[development guide](.github/DEVELOPMENT.md).
