@@ -9,7 +9,7 @@ Its initial patch stack contains all four commits from
 [Trino PR #30881](https://github.com/trinodb/trino/pull/30881): authoritative server
 host lookup, background instance refresh, coordinator-side instance resolution,
 and synchronized gRPC client registration. Connector releases initially start at
-Trino **483**.
+Trino **429** and continue with every later stable release.
 
 Known limitation in the imported PR: worker instance metadata is shared between
 splits. During server host changes, overlapping splits can reuse another split's
@@ -68,7 +68,8 @@ workflow definitions are removed from downstream branches; only the connector
 workflows run.
 
 The [Pinot connector workflow](.github/workflows/pinot-connector.yml) checks daily
-for new upstream releases starting at 483. It also synchronizes fork `master`
+for new upstream releases starting at 429, including historical releases from
+Maven Central that predate Trino's GitHub release downloads. It also synchronizes fork `master`
 and rebases `pinot-dev` onto upstream `master`. A real source conflict stops the
 run for maintainer resolution; it never silently drops a conflicting patch.
 Pushes and pull requests to `pinot-dev` validate the complete patch stack against
@@ -84,9 +85,9 @@ For each new upstream release, automation:
 3. Runs connector unit tests and loads the resulting complete plugin ZIP into
    the matching official Trino Docker image. The load check verifies packaging
    and catalog initialization; it does not validate queries against a live Pinot
-   cluster. Three existing cluster integration suites are excluded from this
+   cluster. Existing cluster integration suites are excluded from this
    small packaging pipeline.
-4. Publishes `<trino-version>-startree.1` with only the connector assets. A failed
+4. Publishes `<trino-version>-startree.<patch>` with only the connector assets. A failed
    replay, build, or runtime check prevents publication. Existing release tags
    and assets are never replaced.
 
@@ -108,6 +109,17 @@ The defaults are `trino_version=latest` and `patch_number=1`. Automatic runs ski
 versions that already have a published release. If an incomplete publication
 reserved a tag, the next automatic attempt uses a higher patch number. Use the
 next patch number when publishing additional fixes for an existing Trino version.
+
+To backfill all missing releases from 429 onward:
+
+```bash
+gh workflow run pinot-connector.yml --repo startreedata/trino --ref pinot-dev \
+  -f trino_version=all-missing
+```
+
+Historical builds use each upstream tag's Java version and dependencies.
+Compatibility adaptations preserve the complete development patch stack across
+older connector APIs and test frameworks; provenance records every adaptation.
 
 Each release retains an immutable annotated development snapshot tag,
 `pinot-dev-snapshot/<full-development-sha>`. Its provenance records that snapshot,
