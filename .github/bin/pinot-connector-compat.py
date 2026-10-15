@@ -189,7 +189,7 @@ def resolve_conflicts(commit, version):
         if re.search(r'^(<<<<<<<|=======|>>>>>>>)', adapted, re.M):
             raise ValueError(f'Unresolved conflict in {path}')
         Path(path).write_text(adapted)
-        run('git', 'add', path)
+        run('git', 'add', '--sparse', path)
         reports.append({'file': path, 'rule': rule})
     if git('diff', '--name-only', '--diff-filter=U').strip():
         raise ValueError('Compatibility replay left unresolved conflicts')
