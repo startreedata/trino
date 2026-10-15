@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "release": "483-startree.1",
+  "trino_version": "483",
+  "dev_sha": "c969c9cb013b40842db5e98222912b5b623670a7",
+  "dev_base_sha": "cf8992f543d0671b2579fded1d17ae3ee862d543",
+  "upstream_master_sha": "cf8992f543d0671b2579fded1d17ae3ee862d543",
+  "upstream_sha": "50b0b50b75abd47f830b7805ee1b51716eb4065e",
+  "patches": [
+    {
+      "sha": "11a18590d6234e02ce143d061ba1210ddf5b60b5",
+      "subject": "Add connector-only Pinot release workflow and installation guide",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "51d124031b3415709f1617c64aeedb1282a70561",
+      "subject": "Keep downstream CI connector-only and normalize JDK version",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "22a208c9b40252d8ade2e547651e72f12e28dee4",
+      "subject": "Resolve Pinot server host from instance config",
+      "status": "applied"
+    },
+    {
+      "sha": "9339800eeb0da3c9b4fce14257e3cd9f2406f995",
+      "subject": "Refresh cached Pinot instance configs in the background",
+      "status": "applied"
+    },
+    {
+      "sha": "40e624c2cf7b29ae42f2333f602bdb791d7279a6",
+      "subject": "Resolve Pinot server instance configs on the coordinator",
+      "status": "applied"
+    },
+    {
+      "sha": "8787edeb112fcbeef3fd8aa182d159b9b251ddb4",
+      "subject": "Fix concurrent registration of Pinot gRPC clients",
+      "status": "applied"
+    },
+    {
+      "sha": "c969c9cb013b40842db5e98222912b5b623670a7",
+      "subject": "Replay the full pinot-dev stack for connector-only releases",
+      "status": "tooling-copied-from-dev-snapshot"
+    }
+  ],
+  "known_limitations": [
+    "Known limitation in the imported PR: worker instance metadata is shared between splits. During server host changes, overlapping splits can reuse another split's cached address. This fork initially preserves the selected upstream PR as-is."
+  ]
+}

@@ -1,0 +1,123 @@
+name: Pinot connector
+
+on:
+  pull_request:
+    branches: [pinot-dev, 'startree/pinot-*']
+  push:
+    branches: [pinot-dev, 'startree/pinot-*']
+    tags: ['*-startree.*']
+  schedule:
+    - cron: '23 9 * * *'
+  workflow_dispatch:
+    inputs:
+      trino_version:
+        description: Upstream Trino release number, or latest
+        default: latest
+        required: true
+      patch_number:
+        description: Positive StarTree patch number; existing releases are never replaced
+        default: '1'
+        required: true
+      dev_snapshot:
+        description: Optional historical pinot-dev-snapshot/<full-sha> tag; empty uses current pinot-dev
+        default: ''
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+concurrency:
+  group: pinot-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'maintenance' || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  sync:
+    if: github.repository == 'startreedata/trino' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dev_snapshot == ''))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: pinot-dev
+          fetch-depth: 0
+      - run: python3 .github/bin/pinot-connector.py sync
+
+  plan:
+    needs: sync
+    if: always() && !cancelled() && (needs.sync.result == 'success' || needs.sync.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_REF: ${{ github.event.pull_request.base.ref || github.ref_name }}
+          TARGET_VERSION: ${{ inputs.trino_version || 'latest' }}
+          PATCH_NUMBER: ${{ inputs.patch_number || '1' }}
+          DEV_SNAPSHOT: ${{ inputs.dev_snapshot }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mode=ci
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then mode=tag; fi
+          if [[ "$EVENT" == schedule ]]; then mode=release; TARGET_VERSION=all-missing; fi
+          if [[ "$EVENT" == workflow_dispatch ]]; then mode=release; fi
+          python3 .github/bin/pinot-connector.py select --mode "$mode" --source "$SOURCE_SHA" --ref "$SOURCE_REF" \
+            --trino-version "$TARGET_VERSION" --patch-number "$PATCH_NUMBER" --dev-snapshot "$DEV_SNAPSHOT"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    uses: ./.github/workflows/pinot-connector-build.yml
+    with:
+      trino_version: ${{ matrix.release.trino }}
+      release: ${{ matrix.release.release }}
+      dev_sha: ${{ matrix.release.dev_sha }}
+      base_sha: ${{ matrix.release.base_sha }}
+      expected_source: ${{ matrix.release.expected_source }}
+
+  publish:
+    needs: [plan, build]
+    if: always() && !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' && needs.build.result != 'cancelled' && github.repository == 'startreedata/trino' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ matrix.release.dev_sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: pinot-${{ matrix.release.release }}
+          path: verified
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EXISTING_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          args=()
+          if [[ "$EXISTING_TAG" == true ]]; then args+=(--existing-tag); fi
+          python3 .github/bin/pinot-connector.py publish --artifact verified "${args[@]}"
