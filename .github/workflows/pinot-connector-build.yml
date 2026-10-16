@@ -41,6 +41,7 @@ jobs:
             .github
             plugin/trino-pinot
             core/trino-spi
+            lib/trino-json
             testing/trino-testing-kafka
       - name: Replay the complete pinned development stack
         id: prepare
@@ -72,6 +73,11 @@ jobs:
               -Dair.check.skip-all=true -Dskip.installnodenpm=true -Dskip.npm=true \
               -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
           else
+            if ((TRINO_VERSION >= 484)); then
+              # trino-json is a runtime dependency whose release JAR is not
+              # published to Central. Keep its exact upstream source and version.
+              ./mvnw -B --no-transfer-progress -f lib/trino-json/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
+            fi
             if ((TRINO_VERSION == 478)); then
               ./mvnw -B --no-transfer-progress -f core/trino-spi/pom.xml -DskipTests -Dmaven.source.skip=true -Dmaven.javadoc.skip=true install
             fi
