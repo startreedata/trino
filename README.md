@@ -127,9 +127,10 @@ gh workflow run pinot-connector.yml --repo startreedata/trino --ref pinot-dev \
 Historical builds use each upstream tag's Java version and dependencies.
 Compatibility adaptations preserve the complete development patch stack across
 older connector APIs and test frameworks; provenance records every adaptation.
-Missing Trino test helpers are built from that exact release's source. Trino 477
+Missing Trino dependencies are built from that exact release's source. Trino 477
 also requires its unpublished dependency modules to be built locally for validation;
-only the Pinot plugin is packaged for download.
+Trino 484 and later build the unpublished `trino-json` runtime dependency locally.
+Only the Pinot plugin is packaged for download.
 
 Each release retains an immutable annotated development snapshot tag,
 `pinot-dev-snapshot/<full-development-sha>`. Its provenance records that snapshot,
@@ -146,7 +147,7 @@ gh workflow run pinot-connector.yml --repo startreedata/trino --ref pinot-dev \
 ```
 
 The reusable [build workflow](.github/workflows/pinot-connector-build.yml) builds
-only the connector and its small unpublished `trino-testing-kafka` test helper,
+the connector and the unpublished dependencies described above,
 using released Trino artifacts for other dependencies. A `master` development
 version such as `484-SNAPSHOT` is never relabeled as a stable release build.
 The workflow selects the JDK required by the targeted upstream release.
