@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "release": "484-startree.1",
+  "trino_version": "484",
+  "dev_sha": "99def905e78414278c5071ce24dc28d5f87f4fdf",
+  "dev_base_sha": "ba517906399d5686f6197d1e3724d0093147b785",
+  "upstream_master_sha": "ba517906399d5686f6197d1e3724d0093147b785",
+  "upstream_sha": "e2d50bb733e193607c44be84ad80ce2430ba1d01",
+  "patches": [
+    {
+      "sha": "19590b1f3f5c55bdb5b1542aed9ed171baa98d20",
+      "subject": "Add connector-only Pinot release workflow and installation guide",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "32bafb445575899efd8f014e790c8fd455e1bfae",
+      "subject": "Keep downstream CI connector-only and normalize JDK version",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "0c0a5ac537bfb357e632c37b4729a2d4e7b74d44",
+      "subject": "Resolve Pinot server host from instance config",
+      "status": "applied"
+    },
+    {
+      "sha": "e1386ebc2ad04ed65dcff813ca34fcb9d2055f99",
+      "subject": "Refresh cached Pinot instance configs in the background",
+      "status": "applied"
+    },
+    {
+      "sha": "c41cffcdea2566f306ca624d9c47b685bf610fad",
+      "subject": "Resolve Pinot server instance configs on the coordinator",
+      "status": "applied"
+    },
+    {
+      "sha": "d4d06975c3dbb84d1a74b5cba18f712a9b85c912",
+      "subject": "Fix concurrent registration of Pinot gRPC clients",
+      "status": "applied"
+    },
+    {
+      "sha": "4544b76874958c7797d9d8af84451b3aa1e59a38",
+      "subject": "Replay the full pinot-dev stack for connector-only releases",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "0dae19a9ed6b64670c08ea0cbd9ff4079cfac2e7",
+      "subject": "Select only published stable upstream Trino releases",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "f2276ecb0a182c052ba27ae94aa85386408e472a",
+      "subject": "Backfill patched Pinot connectors for Trino 429 and later",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "08cc7a37350bbf56181d67004319124cacc4767e",
+      "subject": "Keep connector validation and releases working after upstream integration",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "54458ce556d288813520f9ae1cd6fc21230d5208",
+      "subject": "Declare historical Pinot test dependency for Trino 434 through 451",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "d2ac2d25360371d9d5a23474f98d17462b47e8e4",
+      "subject": "Backport the historical Pinot test resource exception",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "d249b0d0416e8bcf49a0f40d016a11e7c66665c2",
+      "subject": "Validate historical connectors when an official Docker tag is missing",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "52cfdbb8204bbcfcf395e08aa249ebb010671e58",
+      "subject": "Retain trusted release snapshots and build unpublished Trino test dependencies",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "af701f8d36240e7dc498e8f60eac97e8c9451692",
+      "subject": "Support explicit batches of connector release retries",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "0dbda865a58626571b6bd811dc7b0fe2c52c1b35",
+      "subject": "Fetch exact upstream release before importing connector source",
+      "status": "tooling-copied-from-dev-snapshot"
+    },
+    {
+      "sha": "99def905e78414278c5071ce24dc28d5f87f4fdf",
+      "subject": "Build unpublished Trino JSON dependency from exact release source",
+      "status": "tooling-copied-from-dev-snapshot"
+    }
+  ],
+  "compatibility": {
+    "adapter_sha256": "1646dcd2c8a184b5c4f748bb2f82f0f935a1bf53ff28822257019c92dfd0de2a",
+    "adaptations": []
+  },
+  "known_limitations": [
+    "Known limitation in the imported PR: worker instance metadata is shared between splits. During server host changes, overlapping splits can reuse another split's cached address. This fork initially preserves the selected upstream PR as-is."
+  ]
+}
