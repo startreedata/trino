@@ -69,8 +69,10 @@ workflows run.
 
 The [Pinot connector workflow](.github/workflows/pinot-connector.yml) checks daily
 for new upstream releases starting at 429, including historical releases from
-Maven Central that predate Trino's GitHub release downloads. It also synchronizes fork `master`
-and rebases `pinot-dev` onto upstream `master`. A real source conflict stops the
+Maven Central that predate Trino's GitHub release downloads. It rebases `pinot-dev`
+directly onto upstream `master`. The release coordinator maintains the fork's
+`master` mirror separately, because copying upstream workflow changes requires
+permissions unavailable to the Actions token. A real source conflict stops the
 run for maintainer resolution; it never silently drops a conflicting patch.
 Pushes and pull requests to `pinot-dev` validate the complete patch stack against
 the latest stable Trino release without publishing.
