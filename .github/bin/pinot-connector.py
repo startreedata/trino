@@ -321,7 +321,6 @@ def publish(args):
 
 def sync(args):
     observed = fetch('origin', 'refs/heads/pinot-dev')
-    fork_master = fetch('origin', 'refs/heads/master')
     upstream = fetch(UPSTREAM, 'refs/heads/master')
     base = git('merge-base', observed, upstream)
     if git('rev-list', '--merges', f'{base}..{observed}'):
@@ -349,12 +348,13 @@ def sync(args):
         git('rm', '--', str(path))
     if inherited:
         git('commit', '-m', 'Keep inherited upstream workflows disabled in the Pinot fork')
-    git('merge-base', '--is-ancestor', fork_master, upstream)
     dev = git('rev-parse', 'HEAD')
     snapshot = f'pinot-dev-snapshot/{dev}'
     branch = f'refs/heads/startree/dev-snapshots/{dev}'
     payload = {'dev_sha': dev, 'dev_base_sha': upstream}
-    refspecs = [f'{upstream}:refs/heads/master', 'HEAD:refs/heads/pinot-dev']
+    # The fork master mirror can include upstream workflow changes requiring
+    # workflow-write permission; the release coordinator maintains it separately.
+    refspecs = ['HEAD:refs/heads/pinot-dev']
     leases = [f'--force-with-lease=refs/heads/pinot-dev:{observed}']
     retained = git('ls-remote', 'origin', branch)
     if retained and retained.split()[0] != dev:
